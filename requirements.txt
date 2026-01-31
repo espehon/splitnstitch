@@ -1,0 +1,13 @@
+colorama==0.4.6
+halo==0.0.31
+log-symbols==0.0.14
+numpy==2.4.1
+pandas==3.0.0
+prompt_toolkit==3.0.52
+python-dateutil==2.9.0.post0
+questionary==2.1.1
+six==1.17.0
+spinners==0.0.24
+termcolor==3.3.0
+tzdata==2025.3
+wcwidth==0.5.3
