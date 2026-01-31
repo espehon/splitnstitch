@@ -8,12 +8,6 @@ from halo import Halo
 
 spinner = Halo(text='Processing...', spinner='dots')
 sample_size = 20 # Number of sample values to show during inspection
-# safe_columns_file = "safe_columns.json"
-# source_key_column = "shipium_shipment_id"
-# detail_key_column = "reference_identifier" 
-# detail_file = "MasterPackageDetail.xlsx"
-# detail_key_column = "PackageNumber"
-
 
 splash_screen = r"""
    ____     ___ __          _  __        ______  _ __      __ 
@@ -35,10 +29,14 @@ def clear_console() -> None:
 
 
 def choose_file(prompt, supported_formats=('.csv', '.xlsx')):
-    files_in_dir = [f for f in os.listdir('.') if f.endswith(supported_formats)]
-    assert files_in_dir, "🔎 No supported files found in current directory."
-    file_path = q.select(prompt, choices=files_in_dir).ask()
-    return file_path
+    try:
+        files_in_dir = [f for f in os.listdir('.') if f.endswith(supported_formats)]
+        assert files_in_dir, "🔎 No supported files found in current directory."
+        file_path = q.select(prompt, choices=files_in_dir).ask()
+        return file_path
+    except AssertionError as e:
+        print(e)
+        return None
 
 
 def read_file(file_path):
@@ -113,10 +111,8 @@ def join_detail(df):
 
 def export_safe():
     # Get safe columns file
-    try:
-        safe_columns_file = choose_file("Select the SAFE COLUMNS file to use:", supported_formats=('.json',))
-    except AssertionError as e:
-        print(e)
+    safe_columns_file = choose_file("Select the SAFE COLUMNS file to use:", supported_formats=('.json',))
+    if not safe_columns_file:
         user = q.confirm("Would you like to create a safe columns file now?", default=True).ask()
         if user:
             create_safe_columns_file()
