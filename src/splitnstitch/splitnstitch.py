@@ -88,6 +88,9 @@ def join_detail(df):
         print("No detail columns selected.")
         return df
     source_key_column = q.select("Select the key column (from source) to join on:", choices=df.columns.tolist()).ask()
+    if not source_key_column:
+        print("No source key column selected.")
+        return df
     spinner.start("Joining detail data...")
     try:
         pkg_subset = detail_df[[detail_key_column] + columns_to_add]
@@ -113,7 +116,7 @@ def export_safe():
     # Get safe columns file
     safe_columns_file = choose_file("Select the SAFE COLUMNS file to use:", supported_formats=('.json',))
     if not safe_columns_file:
-        user = q.confirm("Would you like to create a safe columns file now?", default=True).ask()
+        user = q.confirm("No safe columns file selected. Would you like to create one now?", default=True).ask()
         if user:
             create_safe_columns_file()
         print("Please restart the export process.")
@@ -153,8 +156,7 @@ def export_safe():
             out_file += '.csv'
         df_safe.to_csv(out_file, index=False)
 
-        spinner.succeed("Export complete.")
-        print(f"Safe export created: {out_file}")
+        spinner.succeed(f"Safe export created: {out_file}")
     except Exception as e:
         spinner.fail("Export failed.")
         print(f"Error: {e}")
@@ -163,9 +165,11 @@ def export_safe():
 def import_merge():
     internal = choose_file("Select ORIGINAL internal (Source) file:")
     if not internal:
+        print("No internal file selected.")
         return
     external = choose_file("Select 3rd party RETURNED (Cleaned) file:")
     if not external:
+        print("No external file selected.")
         return
     
     spinner.start("Loading files...")
@@ -214,8 +218,7 @@ def import_merge():
             out_file += '.csv'
         df_merge.to_csv(out_file, index=False)
 
-        spinner.succeed("Import and merge complete.")
-        print(f"Merged file created: {out_file}")
+        spinner.succeed(f"Merged file created: {out_file}")
     except Exception as e:
         spinner.fail("Import failed.")
 
@@ -241,6 +244,11 @@ def inspect_column_safety(column: pd.Series) -> bool:
             return True
         elif user.startswith("No"):
             return False
+        elif user is None:
+            if q.confirm("Keyboard interrupt detected. Do you want to continue inspecting columns?", default=True).ask():
+                continue
+            raise KeyboardInterrupt
+        
 
 def melt_columns():
     """
@@ -277,8 +285,7 @@ def melt_columns():
     spinner.start("Creating file...")
     try:
         df_melted.to_csv(out_file, index=False)
-        spinner.succeed("File created.")
-        print(f"Melted file: {out_file}")
+        spinner.succeed(f"Melted file: {out_file}")
     except Exception as e:
         spinner.fail("Failed to create file.")
         print(f"Error: {e}")
@@ -313,7 +320,7 @@ def create_safe_columns_file():
     except Exception as e:
         print(f"❌ Error reading file: {e}")
     
-    if not q.confirm("Ready to loop through every column for inspection? (This may take a while, grab some ☕)", default=True).ask():
+    if not q.confirm("Ready to loop through every column for inspection? (This may take a while, grab some coffee ☕)", default=True).ask():
         print("Maybe another time...")
         return
     
@@ -336,11 +343,14 @@ def create_safe_columns_file():
     clear_console()
     preview_last_choices(safe_columns)
     out_file = q.text("Enter output filename for safe columns:", default="safe_columns").ask()
+    if not out_file:
+        print("No output filename provided.")
+        return
     if not out_file.endswith('.json'):
         out_file += '.json'
     with open(out_file, "w") as f:
         json.dump([k for k, v in safe_columns.items() if v], f, indent=4)
-    print(f"✅ Safe columns file created: {out_file}")
+    spinner.succeed(f"Safe columns file created: {out_file}")
 
 
 def main():
