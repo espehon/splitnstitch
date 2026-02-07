@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "splitnstitch"
 version = "0.2.0"
-description = "CLI tool for splitting and merging table files (safe export / import merge)."
+description = "CLI tool for splitting and merging table files (safe export / import merge / melt columns)."
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [ { name = "espehon" } ]
