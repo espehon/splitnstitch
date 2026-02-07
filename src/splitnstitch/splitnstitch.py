@@ -243,7 +243,46 @@ def inspect_column_safety(column: pd.Series) -> bool:
             return False
 
 def melt_columns():
-    pass
+    """
+    Select columns to melt (unpivot) into long format.
+    Each row will be appended with the selected column values being moved to a new column named 'Value' and a column named 'Category' will hold the original column name.
+    I.E., if you select columns A, B, and C, they will be melted into a pair of columns, 'Category' and 'Value', where 'Category' will indicate whether the value came from A, B, or C.
+    """
+    pivoted = choose_file("Select a file:")
+    if pivoted is None:
+        print("No file selected.")
+        return
+    try:
+        df_pivoted = read_file(pivoted)
+    except ValueError:
+        return
+    category_col = q.select("Select columns to melt:", choices=df_pivoted.columns.tolist()).ask()
+    if category_col is None:
+        print("No columns selected.")
+        return
+    spinner.start("Melting columns...")
+    try:
+        df_melted = df_pivoted.melt(id_vars=[c for c in df_pivoted.columns if c not in category_col], value_vars=category_col, var_name='Category', value_name='Value')
+        spinner.succeed("Columns melted.")
+    except Exception as e:
+        spinner.fail("Failed to melt columns.")
+        print(f"Error: {e}")
+        return
+    out_file = q.text("Enter output filename:", default=f"{pivoted.split('.')[0]}_Melted").ask()
+    if not out_file:
+        print("No output filename provided.")
+        return
+    if not out_file.endswith('.csv'):
+        out_file += '.csv'
+    spinner.start("Creating file...")
+    try:
+        df_melted.to_csv(out_file, index=False)
+        spinner.succeed("File created.")
+        print(f"Melted file: {out_file}")
+    except Exception as e:
+        spinner.fail("Failed to create file.")
+        print(f"Error: {e}")
+        return
 
 
 def create_safe_columns_file():
@@ -328,8 +367,7 @@ def main():
         elif choice == "2":
             import_merge()
         elif choice == "3":
-            #TODO: add melt function
-            pass
+            melt_columns()
         elif choice == "4":
             create_safe_columns_file()
         else:
