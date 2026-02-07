@@ -7,7 +7,7 @@ import questionary as q
 from halo import Halo
 
 spinner = Halo(text='Processing...', spinner='dots')
-sample_size = 20 # Number of sample values to show during inspection
+sample_size = 10 # Number of sample values to show during inspection
 
 splash_screen = r"""
    ____     ___ __          _  __        ______  _ __      __ 
@@ -223,8 +223,8 @@ def import_merge():
 def inspect_column_safety(column: pd.Series) -> bool:
     while True:
         # Print header
-        print(f"Inspecting column: {column.name}")
-        print(f"{'-'*40}")
+        q.print(f"[{column.name}]", style="bold fg:bright_white")
+        print(f"{'-'*20}")
         # Show sample values
         sample_values = column.sample(min(sample_size, len(column))).tolist()
         for val in sample_values:
@@ -233,14 +233,17 @@ def inspect_column_safety(column: pd.Series) -> bool:
         user = q.select(
             "Is this column SAFE to include in the export?",
             choices=[
-                "Yes, safe to include.",
                 "No, contains sensitive data.",
+                "Yes, safe to include.",
                 "Show sample values again."
             ]).ask()
         if user.startswith("Yes"):
             return True
         elif user.startswith("No"):
             return False
+
+def melt_columns():
+    pass
 
 
 def create_safe_columns_file():
@@ -307,9 +310,10 @@ def main():
         choice = q.select(
             message="Choose an operation:",
             choices=[
-                "1[Split] Export Safe version of Internal (Source) File.",
+                "1[Split] Export Safe Version of Internal (Source) File.",
                 "2[Stitch] Import and Merge External (Returned) File.",
-                "3[Generate] Create Safe Columns File.",
+                "3[Melt] Melt Columns into Long Format",
+                "4[Generate] Create Safe Columns File.",
                 "0[Exit] Quit the program."
             ]
         ).ask()
@@ -324,6 +328,9 @@ def main():
         elif choice == "2":
             import_merge()
         elif choice == "3":
+            #TODO: add melt function
+            pass
+        elif choice == "4":
             create_safe_columns_file()
         else:
             print("Invalid choice.")
