@@ -264,7 +264,7 @@ def melt_columns():
         df_pivoted = read_file(pivoted)
     except ValueError:
         return
-    category_col = q.select("Select columns to melt:", choices=df_pivoted.columns.tolist()).ask()
+    category_col = q.checkbox("Select columns to melt:", choices=df_pivoted.columns.tolist()).ask()
     if category_col is None:
         print("No columns selected.")
         return
