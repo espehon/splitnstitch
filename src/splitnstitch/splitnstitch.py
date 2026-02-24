@@ -292,6 +292,178 @@ def melt_columns():
         return
 
 
+def benchmark():
+    """
+    Perform delta/variance analysis between multiple columns/attributes and a baseline.
+    Supports both wide and long format data.
+    """
+    source_file = choose_file("Select a file to perform benchmark analysis on:")
+    if not source_file:
+        print("No file selected.")
+        return
+    
+    try:
+        df = read_file(source_file)
+    except Exception as e:
+        print(f"❌ Error reading file: {e}")
+        return
+    
+    # Ask for data format
+    data_format = q.select(
+        "What format is your data in?",
+        choices=["Wide (One row per entity)", "Long (Multiple rows per entity)"]
+    ).ask()
+    
+    if not data_format:
+        return
+    
+    spinner.start("Processing benchmark analysis...")
+    try:
+        if "Wide" in data_format:
+            df_result = benchmark_wide_format(df)
+        else:
+            df_result = benchmark_long_format(df)
+        
+        if df_result is None:
+            spinner.fail("Benchmark analysis cancelled.")
+            return
+        
+        spinner.succeed("Benchmark analysis complete.")
+        
+        # Export results
+        out_file = q.text("Enter output filename:", default=f"{source_file.split('.')[0]}_Benchmark").ask()
+        if not out_file:
+            print("No output filename provided.")
+            return
+        
+        spinner.start("Creating file...")
+        if not out_file.endswith('.csv'):
+            out_file += '.csv'
+        df_result.to_csv(out_file, index=False)
+        spinner.succeed(f"Benchmark file created: {out_file}")
+    except Exception as e:
+        spinner.fail("Benchmark analysis failed.")
+        print(f"Error: {e}")
+        return
+
+
+def benchmark_wide_format(df):
+    """
+    Benchmark analysis for wide format data.
+    Selects a baseline column and compares other columns against it.
+    """
+    baseline_col = q.select(
+        "Select the baseline column:",
+        choices=df.columns.tolist()
+    ).ask()
+    
+    if not baseline_col:
+        return None
+    
+    # Remove baseline from available comparison columns
+    available_cols = [c for c in df.columns if c != baseline_col]
+    
+    comparison_cols = q.checkbox(
+        "Select columns to compare against baseline:",
+        choices=available_cols
+    ).ask()
+    
+    if not comparison_cols:
+        print("No comparison columns selected.")
+        return None
+    
+    try:
+        # Convert baseline and comparison columns to numeric
+        df[baseline_col] = pd.to_numeric(df[baseline_col], errors='coerce')
+        for col in comparison_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Calculate deltas for each comparison column
+        for col in comparison_cols:
+            delta_num_col = f"{col} Delta Num"
+            delta_pct_col = f"{col} Delta Pct"
+            
+            df[delta_num_col] = df[col] - df[baseline_col]
+            df[delta_pct_col] = (df[delta_num_col] / df[baseline_col]) * 100
+        
+        return df
+    except Exception as e:
+        print(f"Error calculating deltas: {e}")
+        return None
+
+
+def benchmark_long_format(df):
+    """
+    Benchmark analysis for long format data.
+    Creates a unique key from categorical columns, selects an attribute column with baseline value,
+    and calculates deltas for the value column.
+    """
+    # Get unique key columns
+    key_cols = q.checkbox(
+        "Select column(s) that form the unique key (PK) for each entity:",
+        choices=df.columns.tolist()
+    ).ask()
+    
+    if not key_cols:
+        print("No key columns selected.")
+        return None
+    
+    # Get attribute column
+    attribute_col = q.select(
+        "Select the attribute column:",
+        choices=[c for c in df.columns if c not in key_cols]
+    ).ask()
+    
+    if not attribute_col:
+        return None
+    
+    # Get value column
+    value_col = q.select(
+        "Select the value column (numeric values for calculation):",
+        choices=[c for c in df.columns if c not in key_cols and c != attribute_col]
+    ).ask()
+    
+    if not value_col:
+        return None
+    
+    # Get baseline value
+    baseline_values = df[attribute_col].unique().tolist()
+    baseline_value = q.select(
+        "Select the baseline attribute value:",
+        choices=baseline_values
+    ).ask()
+    
+    if not baseline_value:
+        return None
+    
+    try:
+        # Convert value column to numeric
+        df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
+        
+        # Create baseline dataframe
+        df_baseline = df[df[attribute_col] == baseline_value].copy()
+        df_baseline = df_baseline[key_cols + [value_col]]
+        df_baseline.rename(columns={value_col: f"{value_col}_baseline"}, inplace=True)
+        
+        # Merge baseline with original data
+        df_merged = df.merge(df_baseline, on=key_cols, how='left')
+        
+        # Calculate deltas for non-baseline rows
+        delta_num_col = f"{value_col} Delta Num"
+        delta_pct_col = f"{value_col} Delta Pct"
+        
+        df_merged[delta_num_col] = df_merged[value_col] - df_merged[f"{value_col}_baseline"]
+        df_merged[delta_pct_col] = (df_merged[delta_num_col] / df_merged[f"{value_col}_baseline"]) * 100
+        
+        # Remove the temporary baseline column
+        df_merged.drop(columns=[f"{value_col}_baseline"], inplace=True)
+        
+        return df_merged
+    except Exception as e:
+        print(f"Error calculating deltas: {e}")
+        return None
+
+
 def create_safe_columns_file():
     def preview_last_choices(choices: dict, N: int=0) -> None:
         # N=0 means show all
@@ -362,7 +534,8 @@ def main():
                 "1[Split] Export Safe Version of Internal (Source) File.",
                 "2[Stitch] Import and Merge External (Returned) File.",
                 "3[Melt] Melt Columns into Long Format",
-                "4[Generate] Create Safe Columns File.",
+                "4[Benchmark] Perform Delta calculations between multiple columns/atributes and baseline",
+                "5[Generate] Create Safe Columns File.",
                 "0[Exit] Quit the program."
             ]
         ).ask()
@@ -379,6 +552,8 @@ def main():
         elif choice == "3":
             melt_columns()
         elif choice == "4":
+            benchmark()
+        elif choice == "5":
             create_safe_columns_file()
         else:
             print("Invalid choice.")
